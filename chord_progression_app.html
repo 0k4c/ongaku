@@ -1,0 +1,784 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>和声理論に基づくコード進行アプリ - 音楽情報処理特論 最終課題</title>
+    <style>
+        * {
+            box-sizing: border-box;
+        }
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            max-width: 1200px;
+            margin: 0 auto;
+            padding: 20px;
+            background: linear-gradient(135deg, #1a1a2e 0%, #16213e 100%);
+            color: #eee;
+            min-height: 100vh;
+        }
+        h1 {
+            text-align: center;
+            color: #00d4ff;
+            text-shadow: 0 0 10px rgba(0, 212, 255, 0.5);
+        }
+        h2 {
+            color: #ff6b6b;
+            border-bottom: 2px solid #ff6b6b;
+            padding-bottom: 5px;
+        }
+        .section {
+            background: rgba(255, 255, 255, 0.05);
+            border-radius: 10px;
+            padding: 20px;
+            margin: 20px 0;
+            backdrop-filter: blur(10px);
+        }
+
+        /* ピアノ鍵盤 */
+        #keyboard {
+            display: flex;
+            justify-content: center;
+            position: relative;
+            height: 200px;
+            margin: 20px 0;
+        }
+        .white-key {
+            width: 50px;
+            height: 180px;
+            background: linear-gradient(180deg, #fff 0%, #e8e8e8 100%);
+            border: 1px solid #333;
+            border-radius: 0 0 5px 5px;
+            cursor: pointer;
+            position: relative;
+            z-index: 1;
+            transition: all 0.1s;
+        }
+        .white-key:hover {
+            background: linear-gradient(180deg, #f0f0f0 0%, #d8d8d8 100%);
+        }
+        .white-key.active {
+            background: linear-gradient(180deg, #00d4ff 0%, #00a8cc 100%);
+            transform: translateY(2px);
+        }
+        .black-key {
+            width: 30px;
+            height: 110px;
+            background: linear-gradient(180deg, #333 0%, #000 100%);
+            border-radius: 0 0 3px 3px;
+            cursor: pointer;
+            position: absolute;
+            z-index: 2;
+            margin-left: -15px;
+            transition: all 0.1s;
+        }
+        .black-key:hover {
+            background: linear-gradient(180deg, #444 0%, #111 100%);
+        }
+        .black-key.active {
+            background: linear-gradient(180deg, #ff6b6b 0%, #cc5555 100%);
+            transform: translateY(2px);
+        }
+
+        /* コントロール */
+        .controls {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 15px;
+            align-items: center;
+            margin: 15px 0;
+        }
+        .control-group {
+            display: flex;
+            flex-direction: column;
+            gap: 5px;
+        }
+        label {
+            font-size: 0.9em;
+            color: #aaa;
+        }
+        select, input[type="range"] {
+            padding: 8px;
+            border-radius: 5px;
+            border: 1px solid #444;
+            background: #2a2a4a;
+            color: #fff;
+            cursor: pointer;
+        }
+        button {
+            padding: 12px 24px;
+            border: none;
+            border-radius: 5px;
+            cursor: pointer;
+            font-size: 1em;
+            font-weight: bold;
+            transition: all 0.2s;
+        }
+        .btn-primary {
+            background: linear-gradient(135deg, #00d4ff, #00a8cc);
+            color: #000;
+        }
+        .btn-primary:hover {
+            transform: scale(1.05);
+            box-shadow: 0 0 15px rgba(0, 212, 255, 0.5);
+        }
+        .btn-secondary {
+            background: linear-gradient(135deg, #ff6b6b, #cc5555);
+            color: #fff;
+        }
+        .btn-secondary:hover {
+            transform: scale(1.05);
+            box-shadow: 0 0 15px rgba(255, 107, 107, 0.5);
+        }
+        .btn-success {
+            background: linear-gradient(135deg, #4ecdc4, #3db9b2);
+            color: #000;
+        }
+        .btn-success:hover {
+            transform: scale(1.05);
+            box-shadow: 0 0 15px rgba(78, 205, 196, 0.5);
+        }
+
+        /* コード進行表示 */
+        #progression-display {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 10px;
+            margin: 20px 0;
+            min-height: 60px;
+        }
+        .chord-box {
+            padding: 15px 20px;
+            background: rgba(255, 255, 255, 0.1);
+            border-radius: 8px;
+            font-size: 1.2em;
+            font-weight: bold;
+            transition: all 0.3s;
+            border: 2px solid transparent;
+        }
+        .chord-box.playing {
+            background: rgba(0, 212, 255, 0.3);
+            border-color: #00d4ff;
+            transform: scale(1.1);
+            box-shadow: 0 0 20px rgba(0, 212, 255, 0.5);
+        }
+        .chord-box.secondary {
+            color: #ff6b6b;
+        }
+
+        /* ADSR */
+        .adsr-controls {
+            display: grid;
+            grid-template-columns: repeat(4, 1fr);
+            gap: 15px;
+        }
+        .adsr-control {
+            text-align: center;
+        }
+        .adsr-control input {
+            width: 100%;
+        }
+        .adsr-value {
+            font-size: 0.8em;
+            color: #00d4ff;
+        }
+
+        /* 説明 */
+        .explanation {
+            background: rgba(0, 212, 255, 0.1);
+            border-left: 4px solid #00d4ff;
+            padding: 15px;
+            margin: 15px 0;
+            border-radius: 0 8px 8px 0;
+        }
+        .explanation h3 {
+            margin-top: 0;
+            color: #00d4ff;
+        }
+        .explanation ul {
+            margin: 10px 0;
+            padding-left: 20px;
+        }
+
+        /* 機能表 */
+        table {
+            width: 100%;
+            border-collapse: collapse;
+            margin: 15px 0;
+        }
+        th, td {
+            padding: 10px;
+            border: 1px solid #444;
+            text-align: center;
+        }
+        th {
+            background: rgba(0, 212, 255, 0.2);
+        }
+        .func-t { color: #4ecdc4; }
+        .func-s { color: #ffe66d; }
+        .func-d { color: #ff6b6b; }
+    </style>
+</head>
+<body>
+    <h1>和声理論に基づくコード進行アプリ</h1>
+    <p style="text-align: center; color: #aaa;">音楽情報処理特論 最終課題 - セカンダリードミナント・二次ケーデンス</p>
+
+    <div class="section">
+        <h2>ピアノ鍵盤</h2>
+        <div id="keyboard"></div>
+        <p style="text-align: center; color: #aaa;">クリックまたはキーボード(A,W,S,E,D,F,T,G,Y,H,U,J,K)で演奏</p>
+    </div>
+
+    <div class="section">
+        <h2>コード進行</h2>
+        <div class="controls">
+            <div class="control-group">
+                <label>キー（調）</label>
+                <select id="key-select">
+                    <option value="C">C（ハ長調）</option>
+                    <option value="C#">C#（嬰ハ長調）</option>
+                    <option value="D">D（ニ長調）</option>
+                    <option value="D#">D#（嬰ニ長調）</option>
+                    <option value="E">E（ホ長調）</option>
+                    <option value="F">F（ヘ長調）</option>
+                    <option value="F#">F#（嬰ヘ長調）</option>
+                    <option value="G">G（ト長調）</option>
+                    <option value="G#">G#（嬰ト長調）</option>
+                    <option value="A">A（イ長調）</option>
+                    <option value="A#">A#（嬰イ長調）</option>
+                    <option value="B">B（ロ長調）</option>
+                </select>
+            </div>
+            <div class="control-group">
+                <label>コード進行パターン</label>
+                <select id="progression-select">
+                    <option value="canon">カノン進行 (I-V-VI-III-IV-I-IV-V)</option>
+                    <option value="canon-secondary">カノン進行 + 二次ケーデンス</option>
+                    <option value="basic">基本カデンツ (I-IV-V-I)</option>
+                    <option value="basic-secondary">基本カデンツ + 二次ケーデンス</option>
+                    <option value="jazz">ジャズ風 (IIM7-V7-IM7)</option>
+                    <option value="pop">ポップス (I-V-VI-IV)</option>
+                </select>
+            </div>
+            <div class="control-group">
+                <label>テンポ (BPM)</label>
+                <input type="range" id="tempo" min="60" max="180" value="100">
+                <span id="tempo-value">100</span>
+            </div>
+            <div class="control-group">
+                <label>波形</label>
+                <select id="waveform">
+                    <option value="sine">正弦波 (Sine)</option>
+                    <option value="triangle">三角波 (Triangle)</option>
+                    <option value="square">矩形波 (Square)</option>
+                    <option value="sawtooth">のこぎり波 (Sawtooth)</option>
+                </select>
+            </div>
+        </div>
+
+        <div class="controls">
+            <button class="btn-primary" onclick="generateProgression()">コード進行を生成</button>
+            <button class="btn-success" onclick="playProgression()">再生</button>
+            <button class="btn-secondary" onclick="stopProgression()">停止</button>
+        </div>
+
+        <h3>現在のコード進行:</h3>
+        <div id="progression-display"></div>
+    </div>
+
+    <div class="section">
+        <h2>ADSRエンベロープ</h2>
+        <div class="adsr-controls">
+            <div class="adsr-control">
+                <label>Attack (A)</label>
+                <input type="range" id="attack" min="0" max="1" step="0.01" value="0.02">
+                <div class="adsr-value" id="attack-value">0.02s</div>
+            </div>
+            <div class="adsr-control">
+                <label>Decay (D)</label>
+                <input type="range" id="decay" min="0" max="1" step="0.01" value="0.1">
+                <div class="adsr-value" id="decay-value">0.1s</div>
+            </div>
+            <div class="adsr-control">
+                <label>Sustain (S)</label>
+                <input type="range" id="sustain" min="0" max="1" step="0.01" value="0.3">
+                <div class="adsr-value" id="sustain-value">0.3</div>
+            </div>
+            <div class="adsr-control">
+                <label>Release (R)</label>
+                <input type="range" id="release" min="0" max="2" step="0.01" value="0.3">
+                <div class="adsr-value" id="release-value">0.3s</div>
+            </div>
+        </div>
+    </div>
+
+    <div class="section">
+        <h2>ダイアトニックコード表</h2>
+        <div id="diatonic-table"></div>
+    </div>
+
+    <div class="section explanation">
+        <h3>セカンダリードミナント・二次ケーデンスとは</h3>
+        <p>セカンダリードミナント（二次ドミナント）は、ダイアトニックコード以外のコードを一時的に挿入するテクニックです。</p>
+        <ul>
+            <li><strong>原理:</strong> どんな和音も、自分がトニック（I）であると主張でき、ドミナント（V）を呼ぶことができる</li>
+            <li><strong>ドミナントモーション:</strong> V7 → I の強い解決感（三全音の解決）</li>
+            <li><strong>二次ケーデンス:</strong> 各ダイアトニックコードに対するドミナント7thを挿入</li>
+        </ul>
+        <p><strong>例（Cメジャー）:</strong></p>
+        <ul>
+            <li>G7 → C（本来のドミナント → トニック）</li>
+            <li>D7 → G（Gに対するセカンダリードミナント）</li>
+            <li>E7 → Am（Amに対するセカンダリードミナント）</li>
+            <li>A7 → Dm（Dmに対するセカンダリードミナント）</li>
+        </ul>
+    </div>
+
+    <script>
+        // AudioContext
+        const AudioContext = window.AudioContext || window.webkitAudioContext;
+        let context = null;
+        let isPlaying = false;
+        let currentTimeout = null;
+        let activeOscillators = [];
+
+        // 音名とMIDIノート番号
+        const NOTE_NAMES = ['C', 'C#', 'D', 'D#', 'E', 'F', 'F#', 'G', 'G#', 'A', 'A#', 'B'];
+
+        // ダイアトニックコード（長調）
+        const DIATONIC_MAJOR = {
+            degrees: ['I', 'II', 'III', 'IV', 'V', 'VI', 'VII'],
+            qualities: ['M7', 'm7', 'm7', 'M7', '7', 'm7', 'm7-5'],
+            functions: ['T', 'S', 'D', 'S', 'D', 'T', 'D'],
+            intervals: [0, 2, 4, 5, 7, 9, 11]
+        };
+
+        // コード構成音（ルートからの半音数）
+        const CHORD_TYPES = {
+            'M': [0, 4, 7],           // メジャー
+            'm': [0, 3, 7],           // マイナー
+            'M7': [0, 4, 7, 11],      // メジャーセブン
+            'm7': [0, 3, 7, 10],      // マイナーセブン
+            '7': [0, 4, 7, 10],       // ドミナントセブン（属七）
+            'm7-5': [0, 3, 6, 10],    // ハーフディミニッシュ
+            'dim7': [0, 3, 6, 9],     // ディミニッシュセブン
+            'aug': [0, 4, 8]          // オーギュメント
+        };
+
+        // セカンダリードミナント
+        function getSecondaryDominant(targetRoot) {
+            // ターゲットの5度上（= 7半音下のオクターブ上）がセカンダリードミナントのルート
+            const secDomRoot = (targetRoot + 7) % 12;
+            return { root: secDomRoot, quality: '7' };
+        }
+
+        // コード進行パターン
+        const PROGRESSIONS = {
+            'canon': [
+                { degree: 0, quality: 'M' },   // I
+                { degree: 4, quality: 'M' },   // V
+                { degree: 5, quality: 'm' },   // VI
+                { degree: 2, quality: 'm' },   // III
+                { degree: 3, quality: 'M' },   // IV
+                { degree: 0, quality: 'M' },   // I
+                { degree: 3, quality: 'M' },   // IV
+                { degree: 4, quality: 'M' }    // V
+            ],
+            'canon-secondary': [
+                { degree: 0, quality: 'M' },
+                { degree: 4, quality: '7', secondary: true, target: 0 },  // D7 -> G
+                { degree: 4, quality: 'M' },
+                { degree: 5, quality: '7', secondary: true, target: 5 },  // E7 -> Am
+                { degree: 5, quality: 'm' },
+                { degree: 2, quality: '7', secondary: true, target: 2 },  // B7 -> Em
+                { degree: 2, quality: 'm' },
+                { degree: 3, quality: '7', secondary: true, target: 3 },  // C7 -> F
+                { degree: 3, quality: 'M' },
+                { degree: 4, quality: '7', secondary: true, target: 0 },  // G7 -> C
+                { degree: 0, quality: 'M' },
+                { degree: 3, quality: '7', secondary: true, target: 3 },  // C7 -> F
+                { degree: 3, quality: 'M' },
+                { degree: 4, quality: '7', secondary: true, target: 4 },  // D7 -> G
+                { degree: 4, quality: 'M' }
+            ],
+            'basic': [
+                { degree: 0, quality: 'M' },
+                { degree: 3, quality: 'M' },
+                { degree: 4, quality: 'M' },
+                { degree: 0, quality: 'M' }
+            ],
+            'basic-secondary': [
+                { degree: 0, quality: 'M' },
+                { degree: 0, quality: '7', secondary: true, target: 3 },  // C7 -> F
+                { degree: 3, quality: 'M' },
+                { degree: 4, quality: '7', secondary: true, target: 4 },  // D7 -> G
+                { degree: 4, quality: '7' },
+                { degree: 0, quality: 'M' }
+            ],
+            'jazz': [
+                { degree: 1, quality: 'm7' },
+                { degree: 4, quality: '7' },
+                { degree: 0, quality: 'M7' }
+            ],
+            'pop': [
+                { degree: 0, quality: 'M' },
+                { degree: 4, quality: 'M' },
+                { degree: 5, quality: 'm' },
+                { degree: 3, quality: 'M' }
+            ]
+        };
+
+        // 現在のコード進行
+        let currentProgression = [];
+
+        // MIDIノート番号から周波数を計算
+        function midiToFrequency(midi) {
+            return 440 * Math.pow(2, (midi - 69) / 12);
+        }
+
+        // コード名を取得
+        function getChordName(rootIndex, quality, keyIndex) {
+            const actualRoot = (keyIndex + rootIndex) % 12;
+            return NOTE_NAMES[actualRoot] + quality;
+        }
+
+        // 音を鳴らす
+        function playNote(frequency, duration = 1) {
+            if (!context) {
+                context = new AudioContext();
+            }
+
+            const oscillator = context.createOscillator();
+            const gainNode = context.createGain();
+
+            oscillator.type = document.getElementById('waveform').value;
+            oscillator.frequency.value = frequency;
+
+            // ADSR
+            const attack = parseFloat(document.getElementById('attack').value);
+            const decay = parseFloat(document.getElementById('decay').value);
+            const sustain = parseFloat(document.getElementById('sustain').value);
+            const release = parseFloat(document.getElementById('release').value);
+
+            const now = context.currentTime;
+            gainNode.gain.setValueAtTime(0, now);
+            gainNode.gain.linearRampToValueAtTime(0.3, now + attack);
+            gainNode.gain.linearRampToValueAtTime(0.3 * sustain, now + attack + decay);
+            gainNode.gain.setValueAtTime(0.3 * sustain, now + duration - release);
+            gainNode.gain.linearRampToValueAtTime(0, now + duration);
+
+            oscillator.connect(gainNode);
+            gainNode.connect(context.destination);
+
+            oscillator.start(now);
+            oscillator.stop(now + duration);
+
+            activeOscillators.push({ oscillator, gainNode });
+
+            return { oscillator, gainNode };
+        }
+
+        // コードを鳴らす
+        function playChord(rootMidi, quality, duration = 1) {
+            const intervals = CHORD_TYPES[quality] || CHORD_TYPES['M'];
+            intervals.forEach(interval => {
+                playNote(midiToFrequency(rootMidi + interval), duration);
+            });
+        }
+
+        // コード進行を生成
+        function generateProgression() {
+            const keyIndex = NOTE_NAMES.indexOf(document.getElementById('key-select').value);
+            const progressionType = document.getElementById('progression-select').value;
+            const pattern = PROGRESSIONS[progressionType];
+
+            currentProgression = pattern.map(chord => {
+                let rootInterval;
+                if (chord.secondary) {
+                    // セカンダリードミナントの場合、ターゲットの5度上
+                    const targetInterval = DIATONIC_MAJOR.intervals[chord.target];
+                    rootInterval = (targetInterval + 7) % 12;
+                } else {
+                    rootInterval = DIATONIC_MAJOR.intervals[chord.degree];
+                }
+
+                const rootMidi = 48 + keyIndex + rootInterval; // C3ベース
+                const name = NOTE_NAMES[(keyIndex + rootInterval) % 12] + chord.quality;
+
+                return {
+                    name: name,
+                    rootMidi: rootMidi,
+                    quality: chord.quality,
+                    isSecondary: chord.secondary || false
+                };
+            });
+
+            updateProgressionDisplay();
+            updateDiatonicTable();
+        }
+
+        // コード進行表示を更新
+        function updateProgressionDisplay() {
+            const display = document.getElementById('progression-display');
+            display.innerHTML = currentProgression.map((chord, index) => {
+                const secondaryClass = chord.isSecondary ? 'secondary' : '';
+                return `<div class="chord-box ${secondaryClass}" id="chord-${index}">${chord.name}</div>`;
+            }).join('');
+        }
+
+        // ダイアトニックコード表を更新
+        function updateDiatonicTable() {
+            const keyIndex = NOTE_NAMES.indexOf(document.getElementById('key-select').value);
+            const keyName = document.getElementById('key-select').value;
+
+            let html = `<table>
+                <tr>
+                    <th>度数</th>
+                    ${DIATONIC_MAJOR.degrees.map(d => `<th>${d}</th>`).join('')}
+                </tr>
+                <tr>
+                    <td>3和音</td>
+                    ${DIATONIC_MAJOR.intervals.map((interval, i) => {
+                        const root = NOTE_NAMES[(keyIndex + interval) % 12];
+                        const quality = i === 0 || i === 3 || i === 4 ? '' :
+                                       i === 6 ? 'm-5' : 'm';
+                        return `<td>${root}${quality}</td>`;
+                    }).join('')}
+                </tr>
+                <tr>
+                    <td>4和音</td>
+                    ${DIATONIC_MAJOR.intervals.map((interval, i) => {
+                        const root = NOTE_NAMES[(keyIndex + interval) % 12];
+                        return `<td>${root}${DIATONIC_MAJOR.qualities[i]}</td>`;
+                    }).join('')}
+                </tr>
+                <tr>
+                    <td>機能</td>
+                    ${DIATONIC_MAJOR.functions.map(f => {
+                        const cls = f === 'T' ? 'func-t' : f === 'S' ? 'func-s' : 'func-d';
+                        const name = f === 'T' ? 'Tonic' : f === 'S' ? 'SubDom' : 'Dom';
+                        return `<td class="${cls}">${name}</td>`;
+                    }).join('')}
+                </tr>
+                <tr>
+                    <td>Sec.Dom</td>
+                    ${DIATONIC_MAJOR.intervals.map((interval, i) => {
+                        const secDomRoot = (keyIndex + interval + 7) % 12;
+                        return `<td style="color: #ff6b6b;">${NOTE_NAMES[secDomRoot]}7</td>`;
+                    }).join('')}
+                </tr>
+            </table>`;
+
+            document.getElementById('diatonic-table').innerHTML = html;
+        }
+
+        // コード進行を再生
+        function playProgression() {
+            if (isPlaying || currentProgression.length === 0) return;
+
+            if (!context) {
+                context = new AudioContext();
+            }
+
+            isPlaying = true;
+            const tempo = parseInt(document.getElementById('tempo').value);
+            const beatDuration = 60 / tempo * 2; // 2拍分
+
+            let index = 0;
+
+            function playNextChord() {
+                if (!isPlaying || index >= currentProgression.length) {
+                    // ループ再生
+                    if (isPlaying) {
+                        index = 0;
+                    } else {
+                        return;
+                    }
+                }
+
+                // 前のハイライトを消す
+                document.querySelectorAll('.chord-box').forEach(el => el.classList.remove('playing'));
+
+                // 現在のコードをハイライト
+                const chordEl = document.getElementById(`chord-${index}`);
+                if (chordEl) chordEl.classList.add('playing');
+
+                const chord = currentProgression[index];
+                playChord(chord.rootMidi, chord.quality, beatDuration * 0.9);
+
+                index++;
+                currentTimeout = setTimeout(playNextChord, beatDuration * 1000);
+            }
+
+            playNextChord();
+        }
+
+        // 再生停止
+        function stopProgression() {
+            isPlaying = false;
+            if (currentTimeout) {
+                clearTimeout(currentTimeout);
+                currentTimeout = null;
+            }
+            document.querySelectorAll('.chord-box').forEach(el => el.classList.remove('playing'));
+
+            // すべてのオシレーターを停止
+            activeOscillators.forEach(({ oscillator, gainNode }) => {
+                try {
+                    gainNode.gain.cancelScheduledValues(context.currentTime);
+                    gainNode.gain.setValueAtTime(0, context.currentTime);
+                    oscillator.stop(context.currentTime + 0.1);
+                } catch (e) {}
+            });
+            activeOscillators = [];
+        }
+
+        // ピアノ鍵盤を作成
+        function createKeyboard() {
+            const keyboard = document.getElementById('keyboard');
+            const whiteKeys = [0, 2, 4, 5, 7, 9, 11, 12, 14, 16, 17, 19, 21, 23]; // C4からB5
+            const blackKeys = [1, 3, 6, 8, 10, 13, 15, 18, 20, 22];
+
+            const keyMap = {}; // PCキーボードマッピング
+            const pcKeys = ['a', 'w', 's', 'e', 'd', 'f', 't', 'g', 'y', 'h', 'u', 'j', 'k'];
+            const midiStart = 60; // C4
+
+            // 白鍵を作成
+            whiteKeys.forEach((note, index) => {
+                const key = document.createElement('div');
+                key.className = 'white-key';
+                key.dataset.note = midiStart + note;
+                key.addEventListener('mousedown', () => onKeyDown(midiStart + note, key));
+                key.addEventListener('mouseup', () => onKeyUp(key));
+                key.addEventListener('mouseleave', () => onKeyUp(key));
+                keyboard.appendChild(key);
+            });
+
+            // 黒鍵を作成
+            const blackKeyPositions = [1, 2, 4, 5, 6, 8, 9, 11, 12, 13]; // 白鍵のインデックス
+            blackKeys.forEach((note, index) => {
+                const key = document.createElement('div');
+                key.className = 'black-key';
+                key.dataset.note = midiStart + note;
+                key.style.left = (blackKeyPositions[index] * 50 + 35) + 'px';
+                key.addEventListener('mousedown', () => onKeyDown(midiStart + note, key));
+                key.addEventListener('mouseup', () => onKeyUp(key));
+                key.addEventListener('mouseleave', () => onKeyUp(key));
+                keyboard.appendChild(key);
+            });
+
+            // PCキーボード入力
+            const noteOrder = [0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12];
+            pcKeys.forEach((k, i) => {
+                if (i < noteOrder.length) {
+                    keyMap[k] = midiStart + noteOrder[i];
+                }
+            });
+
+            document.addEventListener('keydown', (e) => {
+                if (e.repeat) return;
+                const note = keyMap[e.key.toLowerCase()];
+                if (note) {
+                    const key = document.querySelector(`[data-note="${note}"]`);
+                    if (key && !key.classList.contains('active')) {
+                        onKeyDown(note, key);
+                    }
+                }
+            });
+
+            document.addEventListener('keyup', (e) => {
+                const note = keyMap[e.key.toLowerCase()];
+                if (note) {
+                    const key = document.querySelector(`[data-note="${note}"]`);
+                    if (key) {
+                        onKeyUp(key);
+                    }
+                }
+            });
+        }
+
+        // 鍵盤操作
+        const activeKeys = {};
+
+        function onKeyDown(note, keyElement) {
+            if (activeKeys[note]) return;
+
+            if (!context) {
+                context = new AudioContext();
+            }
+
+            keyElement.classList.add('active');
+
+            const oscillator = context.createOscillator();
+            const gainNode = context.createGain();
+
+            oscillator.type = document.getElementById('waveform').value;
+            oscillator.frequency.value = midiToFrequency(note);
+
+            const attack = parseFloat(document.getElementById('attack').value);
+            const now = context.currentTime;
+
+            gainNode.gain.setValueAtTime(0, now);
+            gainNode.gain.linearRampToValueAtTime(0.3, now + attack);
+
+            oscillator.connect(gainNode);
+            gainNode.connect(context.destination);
+            oscillator.start();
+
+            activeKeys[note] = { oscillator, gainNode };
+        }
+
+        function onKeyUp(keyElement) {
+            const note = parseInt(keyElement.dataset.note);
+            if (!activeKeys[note]) return;
+
+            keyElement.classList.remove('active');
+
+            const { oscillator, gainNode } = activeKeys[note];
+            const release = parseFloat(document.getElementById('release').value);
+            const now = context.currentTime;
+
+            gainNode.gain.cancelScheduledValues(now);
+            gainNode.gain.setValueAtTime(gainNode.gain.value, now);
+            gainNode.gain.linearRampToValueAtTime(0, now + release);
+            oscillator.stop(now + release);
+
+            delete activeKeys[note];
+        }
+
+        // ADSR値表示更新
+        function updateADSRDisplay() {
+            document.getElementById('attack-value').textContent =
+                parseFloat(document.getElementById('attack').value).toFixed(2) + 's';
+            document.getElementById('decay-value').textContent =
+                parseFloat(document.getElementById('decay').value).toFixed(2) + 's';
+            document.getElementById('sustain-value').textContent =
+                parseFloat(document.getElementById('sustain').value).toFixed(2);
+            document.getElementById('release-value').textContent =
+                parseFloat(document.getElementById('release').value).toFixed(2) + 's';
+        }
+
+        // イベントリスナー設定
+        document.getElementById('attack').addEventListener('input', updateADSRDisplay);
+        document.getElementById('decay').addEventListener('input', updateADSRDisplay);
+        document.getElementById('sustain').addEventListener('input', updateADSRDisplay);
+        document.getElementById('release').addEventListener('input', updateADSRDisplay);
+
+        document.getElementById('tempo').addEventListener('input', function() {
+            document.getElementById('tempo-value').textContent = this.value;
+        });
+
+        document.getElementById('key-select').addEventListener('change', function() {
+            generateProgression();
+        });
+
+        document.getElementById('progression-select').addEventListener('change', function() {
+            generateProgression();
+        });
+
+        // 初期化
+        createKeyboard();
+        generateProgression();
+    </script>
+</body>
+</html>
